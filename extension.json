@@ -1,0 +1,27 @@
+{
+  "id": "editor-shell",
+  "name": "编辑器窗口",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "description": "编辑器扩展的单窗口外壳：左侧项目文件树，右侧按文件类型内嵌 HTML / JavaScript 编辑器插件。",
+  "kind": "editor-shell",
+  "requires": ["editor"],
+  "host": {
+    "innerName": "editor.html",
+    "fileParam": "file",
+    "keepMtime": false
+  },
+  "library": {
+    "sidebar": false,
+    "navLabel": "Editor-Shell",
+    "glyph": "E8B7",
+    "title": "编辑器窗口",
+    "description": "单窗口内嵌插件。",
+    "openLabel": "",
+    "addLabel": "",
+    "authorFallback": "Editor",
+    "cover": "none",
+    "order": 50,
+    "metadata": ""
+  }
+}

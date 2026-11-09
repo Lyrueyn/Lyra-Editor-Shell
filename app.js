@@ -190,7 +190,7 @@
       row.type = "button";
       row.className = cls;
       row.style.paddingLeft = (6 + depth * 13) + "px";
-      row.innerHTML = '<span class="tree-icon ' + iconClass + '"></span><span class="tree-name"></span>';
+      row.innerHTML = '<span class="tree-chevron">▸</span><span class="tree-icon ' + iconClass + '"></span><span class="tree-name"></span>';
       row.querySelector(".tree-icon").textContent = iconText;
       row.querySelector(".tree-name").textContent = name;
       return row;
@@ -221,6 +221,7 @@
         const kind = kindOf(file.rel);
         const available = kind === "html" ? flags.html : kind === "js" ? flags.js : false;
         const row = makeRow("tree-row tree-file" + (file.rel === state.currentRel ? " active" : "") + (available ? "" : " disabled"), depth, "", "", baseName(file.rel));
+        row.querySelector(".tree-chevron").style.visibility = "hidden";
         row.title = file.rel;
         row.dataset.kind = "file";
         row.dataset.rel = file.rel;
@@ -228,7 +229,7 @@
         const icon = iconFor(kind, file.rel);
         row.querySelector(".tree-icon").textContent = icon.text;
         row.querySelector(".tree-icon").className = "tree-icon " + icon.cls;
-        row.style.paddingLeft = (6 + depth * 13 + 14) + "px";
+        row.style.paddingLeft = (6 + depth * 13) + "px";
         row.addEventListener("click", () => {
           if (!available) {
             if (kind === "css") toast("还没有安装 CSS 编辑器插件，暂时不能打开：" + file.rel, true);

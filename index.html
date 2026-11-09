@@ -38,6 +38,18 @@
       </div>
     </main>
   </div>
+  <div id="treeCtxMenu" class="tree-ctx-menu" hidden></div>
+  <div id="treeDialogMask" class="tree-dialog-mask" hidden>
+    <div class="tree-dialog">
+      <h3 id="treeDialogTitle"></h3>
+      <div id="treeDialogMessage" class="tree-dialog-message"></div>
+      <input id="treeDialogInput" class="tree-dialog-input" type="text" spellcheck="false" autocomplete="off"/>
+      <div class="tree-dialog-actions">
+        <button id="treeDialogCancel" class="shell-btn" type="button">取消</button>
+        <button id="treeDialogOk" class="shell-btn primary" type="button">确定</button>
+      </div>
+    </div>
+  </div>
   <div id="toast" class="toast" hidden></div>
   <script src="app.js"></script>
 </body>

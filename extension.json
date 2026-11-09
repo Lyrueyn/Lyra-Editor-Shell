@@ -1,7 +1,7 @@
 {
   "id": "editor-shell",
   "name": "编辑器窗口",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "entry": "index.html",
   "description": "编辑器扩展的单窗口外壳：左侧项目文件树，右侧按文件类型内嵌 HTML / JavaScript 编辑器插件。",
   "kind": "editor-shell",

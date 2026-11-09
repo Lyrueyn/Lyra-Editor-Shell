@@ -20,6 +20,7 @@
     dirs: [],
     expanded: new Set(),
     currentRel: "",
+    rootExpanded: true,
     requestId: 1,
     pending: new Map(),
     loading: false,
@@ -174,22 +175,36 @@
     return { cls: "other", text: "·" };
   }
 
+  function expandParents(rel) {
+    const parts = String(rel || "").split("/");
+    for (let i = 1; i < parts.length; i += 1) state.expanded.add(parts.slice(0, i).join("/"));
+  }
+
   function renderTree() {
     const box = $("fileTree");
     box.innerHTML = "";
     const root = buildTree();
     let visible = 0;
+    const makeRow = (cls, depth, iconText, iconClass, name) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = cls;
+      row.style.paddingLeft = (6 + depth * 13) + "px";
+      row.innerHTML = '<span class="tree-icon ' + iconClass + '"></span><span class="tree-name"></span>';
+      row.querySelector(".tree-icon").textContent = iconText;
+      row.querySelector(".tree-name").textContent = name;
+      return row;
+    };
     function walk(node, container, depth) {
       const dirs = Array.from(node.dirs.values()).sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
       const files = node.files.slice().sort((a, b) => baseName(a.rel).localeCompare(baseName(b.rel), "zh-CN"));
       for (const dir of dirs) {
         const open = state.expanded.has(dir.path);
-        const row = document.createElement("button");
-        row.type = "button";
-        row.className = "tree-row tree-dir" + (open ? " open" : "");
-        row.style.paddingLeft = (6 + depth * 13) + "px";
-        row.innerHTML = '<span class="tree-chevron">▸</span><span class="tree-icon dir">▤</span><span class="tree-name"></span>';
-        row.querySelector(".tree-name").textContent = dir.name;
+        const row = makeRow("tree-row tree-dir" + (open ? " open" : ""), depth, "▤", "dir", dir.name);
+        row.title = dir.path;
+        row.dataset.kind = "dir";
+        row.dataset.rel = dir.path;
+        row.dataset.name = dir.name;
         const children = document.createElement("div");
         children.className = "tree-children";
         children.hidden = !open;
@@ -205,15 +220,15 @@
         visible += 1;
         const kind = kindOf(file.rel);
         const available = kind === "html" ? flags.html : kind === "js" ? flags.js : false;
-        const row = document.createElement("button");
-        row.type = "button";
-        row.className = "tree-row tree-file" + (file.rel === state.currentRel ? " active" : "") + (available ? "" : " disabled");
-        row.style.paddingLeft = (6 + depth * 13 + 14) + "px";
+        const row = makeRow("tree-row tree-file" + (file.rel === state.currentRel ? " active" : "") + (available ? "" : " disabled"), depth, "", "", baseName(file.rel));
         row.title = file.rel;
+        row.dataset.kind = "file";
+        row.dataset.rel = file.rel;
+        row.dataset.name = baseName(file.rel);
         const icon = iconFor(kind, file.rel);
-        row.innerHTML = '<span class="tree-icon ' + icon.cls + '"></span><span class="tree-name"></span>';
         row.querySelector(".tree-icon").textContent = icon.text;
-        row.querySelector(".tree-name").textContent = baseName(file.rel);
+        row.querySelector(".tree-icon").className = "tree-icon " + icon.cls;
+        row.style.paddingLeft = (6 + depth * 13 + 14) + "px";
         row.addEventListener("click", () => {
           if (!available) {
             if (kind === "css") toast("还没有安装 CSS 编辑器插件，暂时不能打开：" + file.rel, true);
@@ -225,10 +240,218 @@
         container.appendChild(row);
       }
     }
-    walk(root, box, 0);
+    const rootRow = document.createElement("button");
+    rootRow.type = "button";
+    rootRow.className = "tree-row tree-root" + (state.rootExpanded ? " open" : "");
+    rootRow.dataset.kind = "root";
+    rootRow.dataset.rel = "";
+    rootRow.dataset.name = state.projectName;
+    rootRow.title = state.root || state.projectName;
+    rootRow.innerHTML = '<span class="tree-chevron">▸</span><span class="tree-icon dir">▤</span><span class="tree-name"></span>';
+    rootRow.querySelector(".tree-name").textContent = state.projectName || "项目";
+    const rootChildren = document.createElement("div");
+    rootChildren.className = "tree-children";
+    rootChildren.hidden = !state.rootExpanded;
+    rootRow.addEventListener("click", () => {
+      state.rootExpanded = !state.rootExpanded;
+      renderTree();
+    });
+    box.append(rootRow, rootChildren);
+    walk(root, rootChildren, 1);
     $("fileCount").textContent = String(visible);
   }
 
+  let treeDialogState = null;
+  let treeMenuTarget = null;
+  let treeMenuCleanup = null;
+
+  function treeDirname(rel) {
+    const v = String(rel || "");
+    const i = v.lastIndexOf("/");
+    return i >= 0 ? v.slice(0, i) : "";
+  }
+  function treeJoin(dir, name) {
+    const d = String(dir || "").replace(/\/+$/, "");
+    return d ? d + "/" + name : name;
+  }
+  function validateTreeName(name) {
+    const v = String(name || "").trim();
+    if (!v) throw new Error("名称不能为空");
+    if (v === "." || v === "..") throw new Error("名称不合法");
+    if (/[\\/:*?"<>|]/.test(v)) throw new Error("名称不能包含 \\ / : * ? \" < > |");
+    return v;
+  }
+  function newFileText(name) {
+    if (/\.html?$/i.test(name)) return '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>' + name.replace(/\.html?$/i, "") + '</title>\n</head>\n<body>\n  <h1>新建页面</h1>\n</body>\n</html>\n';
+    if (/\.css$/i.test(name)) return "/* " + name + " */\n";
+    if (/\.(m?js|cjs)$/i.test(name)) return "// " + name + "\n";
+    if (/\.json$/i.test(name)) return "{}\n";
+    return "";
+  }
+  function openTreeDialog(opts) {
+    return new Promise((resolve) => {
+      treeDialogState = { resolve: resolve, hasInput: opts.hasInput !== false };
+      $("treeDialogTitle").textContent = opts.title || "";
+      $("treeDialogMessage").textContent = opts.message || "";
+      const input = $("treeDialogInput");
+      input.hidden = opts.hasInput === false;
+      input.value = opts.value || "";
+      $("treeDialogOk").textContent = opts.okText || "确定";
+      $("treeDialogOk").classList.toggle("danger", !!opts.danger);
+      $("treeDialogMask").hidden = false;
+      setTimeout(() => {
+        if (!input.hidden) { input.focus(); input.select(); }
+        else $("treeDialogOk").focus();
+      }, 20);
+    });
+  }
+  function closeTreeDialog(ok) {
+    const st = treeDialogState;
+    treeDialogState = null;
+    $("treeDialogMask").hidden = true;
+    if (!st) return;
+    st.resolve(ok && st.hasInput ? $("treeDialogInput").value.trim() : ok);
+  }
+  function treePrompt(title, value, message) {
+    return openTreeDialog({ title: title, value: value, message: message, hasInput: true });
+  }
+  function treeConfirm(title, message) {
+    return openTreeDialog({ title: title, message: message, hasInput: false, okText: "删除", danger: true });
+  }
+  function closeTreeMenu() {
+    const menu = $("treeCtxMenu");
+    if (menu) { menu.hidden = true; menu.innerHTML = ""; }
+    treeMenuTarget = null;
+    if (treeMenuCleanup) { treeMenuCleanup(); treeMenuCleanup = null; }
+  }
+  function showTreeMenu(x, y, target) {
+    const menu = $("treeCtxMenu");
+    if (!menu) return;
+    closeTreeMenu();
+    treeMenuTarget = target;
+    const add = (label, handler, danger) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tree-ctx-item" + (danger ? " danger" : "");
+      btn.textContent = label;
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeTreeMenu();
+        Promise.resolve().then(handler).catch((e) => toast(e.message || String(e), true));
+      });
+      menu.appendChild(btn);
+    };
+    const sep = () => {
+      const d = document.createElement("div");
+      d.className = "tree-ctx-sep";
+      menu.appendChild(d);
+    };
+    const kind = target ? target.kind : "root";
+    const dirRel = kind === "root" ? "" : kind === "dir" ? target.rel : treeDirname(target.rel);
+    if (kind === "root" || kind === "dir") {
+      add("新建文件", () => createProjectFile(dirRel));
+      add("新建文件夹", () => createProjectFolder(dirRel));
+    }
+    if (kind === "dir" || kind === "file") {
+      sep();
+      add("重命名…", () => renameProjectTarget(target));
+      add(kind === "dir" ? "删除文件夹" : "删除文件", () => deleteProjectTarget(target), true);
+    }
+    menu.hidden = false;
+    menu.style.left = "0px";
+    menu.style.top = "0px";
+    const rect = menu.getBoundingClientRect();
+    menu.style.left = Math.max(6, Math.min(x, window.innerWidth - rect.width - 6)) + "px";
+    menu.style.top = Math.max(6, Math.min(y, window.innerHeight - rect.height - 6)) + "px";
+    const onDoc = (event) => {
+      if (event.target && event.target.closest && event.target.closest("#treeCtxMenu")) return;
+      closeTreeMenu();
+    };
+    const onScroll = () => closeTreeMenu();
+    document.addEventListener("mousedown", onDoc, true);
+    document.addEventListener("scroll", onScroll, true);
+    treeMenuCleanup = () => {
+      document.removeEventListener("mousedown", onDoc, true);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }
+
+  async function reloadProjectTree() {
+    const info = await hostCall("host.project.list");
+    if (!info || !info.ok) throw new Error((info && info.error) || "刷新项目失败");
+    state.root = info.root || state.root;
+    state.projectName = info.name || state.projectName;
+    state.files = Array.isArray(info.files) ? info.files : [];
+    state.dirs = Array.isArray(info.dirs) ? info.dirs : [];
+    renderTree();
+  }
+  async function createProjectFile(dirRel) {
+    let name = await treePrompt("新建文件", "", "文件名，例如 page.html");
+    if (name == null) return;
+    name = validateTreeName(name);
+    if (!/\.[a-z0-9]+$/i.test(name)) name += ".html";
+    const rel = treeJoin(dirRel, name);
+    const res = await hostCall("host.file.save", { path: rel, data: encodeText(newFileText(name)) });
+    if (!res || !res.ok) throw new Error((res && res.error) || "新建文件失败");
+    expandParents(rel);
+    await reloadProjectTree();
+    const kind = kindOf(rel);
+    if (kind === "html" || kind === "js") await openFile(rel);
+    toast("已新建文件：" + rel);
+  }
+  async function createProjectFolder(dirRel) {
+    let name = await treePrompt("新建文件夹", "", "文件夹名称");
+    if (name == null) return;
+    name = validateTreeName(name);
+    const rel = treeJoin(dirRel, name);
+    const res = await hostCall("host.file.mkdir", { path: rel });
+    if (!res || !res.ok) throw new Error((res && res.error) || "新建文件夹失败");
+    expandParents(rel);
+    state.expanded.add(rel);
+    await reloadProjectTree();
+    toast("已新建文件夹：" + rel);
+  }
+  async function renameProjectTarget(target) {
+    if (!target || target.kind === "root") return;
+    const oldRel = target.rel;
+    const oldName = target.name || baseName(oldRel);
+    const next = await treePrompt("重命名", oldName, "输入新名称");
+    if (next == null) return;
+    const newName = validateTreeName(next);
+    if (newName === oldName) return;
+    const toRel = treeJoin(treeDirname(oldRel), newName);
+    const res = await hostCall("host.file.rename", { from: oldRel, to: toRel });
+    if (!res || !res.ok) throw new Error((res && res.error) || "重命名失败");
+    const affected = state.currentRel === oldRel || state.currentRel.startsWith(oldRel + "/");
+    const nextCurrent = affected ? toRel + state.currentRel.slice(oldRel.length) : state.currentRel;
+    if (affected) expandParents(nextCurrent);
+    await reloadProjectTree();
+    if (affected && nextCurrent) await openFile(nextCurrent);
+    toast("已重命名：" + oldRel + " → " + toRel);
+  }
+  async function deleteProjectTarget(target) {
+    if (!target || target.kind === "root") return;
+    const isDir = target.kind === "dir";
+    const ok = await treeConfirm("删除" + (isDir ? "文件夹" : "文件"), "确定删除 " + target.rel + " 吗？\n" + (isDir ? "文件夹内的所有内容都会被删除。" : "文件会被删除。") + "\n此操作不可撤销。");
+    if (!ok) return;
+    const res = await hostCall("host.file.delete", { path: target.rel });
+    if (!res || !res.ok) throw new Error((res && res.error) || "删除失败");
+    const affected = state.currentRel === target.rel || state.currentRel.startsWith(target.rel + "/");
+    await reloadProjectTree();
+    if (affected) {
+      const next = state.files.find((f) => /^.*\.(html?|m?js|cjs|json)$/i.test(f.rel));
+      if (next) await openFile(next.rel);
+      else {
+        state.currentRel = "";
+        $("currentFile").textContent = "未打开文件";
+        $("pluginBadge").textContent = "";
+        $("pluginFrame").src = "about:blank";
+        showEmpty("项目里没有可编辑的 HTML / JS 文件了。");
+      }
+    }
+    toast("已删除：" + target.rel);
+  }
   function showEmpty(message) {
     $("shellEmpty").hidden = false;
     $("emptyMessage").textContent = message || "";
@@ -328,6 +551,25 @@
       $("pluginLoading").hidden = true;
       postTheme();
     });
+    $("fileTree").addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const row = event.target && event.target.closest ? event.target.closest(".tree-row") : null;
+      const target = row ? { kind: row.dataset.kind, rel: row.dataset.rel, name: row.dataset.name } : { kind: "root", rel: "", name: state.projectName };
+      showTreeMenu(event.clientX, event.clientY, target);
+    });
+    $("treeDialogOk").addEventListener("click", () => closeTreeDialog(true));
+    $("treeDialogCancel").addEventListener("click", () => closeTreeDialog(false));
+    $("treeDialogInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") { event.preventDefault(); closeTreeDialog(true); }
+      else if (event.key === "Escape") { event.preventDefault(); closeTreeDialog(false); }
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      closeTreeMenu();
+      if (!$("treeDialogMask").hidden) closeTreeDialog(false);
+    });
+    window.addEventListener("blur", () => closeTreeMenu());
   }
 
   (async () => {

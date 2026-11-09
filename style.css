@@ -1,8 +1,52 @@
-:root {
-  --bg: #0d1014; --bar: #121820; --sidebar: #111720; --line: #26303d;
-  --text: #e7edf5; --sub: #8fa2b6; --muted: #617486; --accent: #f7df1e;
-  --accent-soft: rgba(247,223,30,.14); --danger: #ff8a9b;
+:root, html[data-shell-theme="lyra"] {
+  --bg: #07111d; --bar: #0d1b2c; --sidebar: #0a1625; --editor-bg: #07111d;
+  --panel: #0d1b2c; --panel2: #12253a; --line: #244766; --text: #e8f3ff;
+  --sub: #8db6d8; --muted: #6d91b3; --accent: #4d9fff; --accent-soft: rgba(77,159,255,.16);
+  --danger: #ff8a9b;
 }
+html[data-shell-theme="violet"] {
+  --bg: #0e0a17; --bar: #151021; --sidebar: #120d1e; --editor-bg: #0e0a17;
+  --panel: #151021; --panel2: #1c1430; --line: #3a2b55; --text: #eee7ff;
+  --sub: #a99ac7; --muted: #81739e; --accent: #b388ff; --accent-soft: rgba(179,136,255,.17);
+  --danger: #ff8a9b;
+}
+html[data-shell-theme="emerald"] {
+  --bg: #07130f; --bar: #0d1d17; --sidebar: #0a1813; --editor-bg: #07130f;
+  --panel: #0d1d17; --panel2: #12271f; --line: #244e3e; --text: #e4fff2;
+  --sub: #8fb9a8; --muted: #6c9384; --accent: #35e6a5; --accent-soft: rgba(53,230,165,.15);
+  --danger: #ff8a9b;
+}
+html[data-shell-theme="sunset"] {
+  --bg: #170e09; --bar: #24160e; --sidebar: #1d120b; --editor-bg: #170e09;
+  --panel: #24160e; --panel2: #2f1d11; --line: #5a3a23; --text: #fff0df;
+  --sub: #c5a58b; --muted: #967962; --accent: #ffa45c; --accent-soft: rgba(255,164,92,.16);
+  --danger: #ff8a9b;
+}
+html[data-shell-theme="sakura"] {
+  --bg: #160d12; --bar: #22131b; --sidebar: #1c1017; --editor-bg: #160d12;
+  --panel: #22131b; --panel2: #2d1923; --line: #593343; --text: #ffeaf2;
+  --sub: #c79caf; --muted: #9a7385; --accent: #ff9ec4; --accent-soft: rgba(255,158,196,.16);
+  --danger: #ff8a9b;
+}
+html[data-shell-theme="light"] {
+  --bg: #eef3f8; --bar: #ffffff; --sidebar: #f8fbfe; --editor-bg: #ffffff;
+  --panel: #ffffff; --panel2: #f3f7fb; --line: #cfdae6; --text: #1f2937;
+  --sub: #5f7183; --muted: #7b8c9d; --accent: #138fc9; --accent-soft: rgba(19,143,201,.12);
+  --danger: #b4233a;
+}
+html, body { background: var(--bg); color: var(--text); }
+html[data-shell-theme] #shellBar { background: var(--bar); border-color: var(--line); }
+html[data-shell-theme] #shellSidebar { background: var(--sidebar); border-color: var(--line); }
+html[data-shell-theme] #shellMain, html[data-shell-theme] #pluginFrame,
+html[data-shell-theme] .plugin-loading, html[data-shell-theme] .shell-empty { background: var(--editor-bg); }
+html[data-shell-theme] .tree-row:hover { background: var(--panel2); }
+html[data-shell-theme] .shell-btn { background: var(--panel2); border-color: var(--line); color: var(--text); }
+html[data-shell-theme] .toast { background: var(--panel); border-color: var(--line); color: var(--text); }
+html[data-shell-theme] .plugin-badge { border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+html[data-shell-theme="light"] .brand-dot { box-shadow: none; }
+.theme-select { border: 0; background: transparent; color: var(--sub); font: 11px "Microsoft YaHei", sans-serif; outline: none; cursor: pointer; max-width: 96px; }
+.theme-select option { background: var(--panel); color: var(--text); }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; overflow: hidden; }
 body { display: flex; flex-direction: column; }

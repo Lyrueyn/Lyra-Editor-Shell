@@ -10,8 +10,11 @@
     html: params.get("htmlEditor") === "1",
     js: params.get("jsEditor") === "1",
   };
+  const THEME_KEY = "lyra.shell.theme";
+  const THEMES = new Set(["lyra", "violet", "emerald", "sunset", "sakura", "light"]);
   const state = {
     projectName: params.get("projectName") || "项目",
+    theme: "lyra",
     root: "",
     files: [],
     dirs: [],
@@ -64,6 +67,29 @@
     if (!root) return String(rel || "");
     const sep = root.includes("\\") ? "\\" : "/";
     return root + sep + String(rel || "").replace(/\//g, sep);
+  }
+
+  function postTheme() {
+    try {
+      const frame = $("pluginFrame");
+      if (frame && frame.contentWindow) frame.contentWindow.postMessage({ type: "theme", theme: state.theme }, "*");
+    } catch { }
+  }
+
+  function applyTheme(name) {
+    const next = THEMES.has(name) ? name : "lyra";
+    state.theme = next;
+    document.documentElement.dataset.shellTheme = next;
+    const sel = $("themeSelect");
+    if (sel) sel.value = next;
+    try { localStorage.setItem(THEME_KEY, next); } catch { }
+    postTheme();
+  }
+
+  function initTheme() {
+    let saved = "lyra";
+    try { saved = localStorage.getItem(THEME_KEY) || "lyra"; } catch { }
+    applyTheme(saved);
   }
 
   function hostCall(type, payload) {
@@ -296,11 +322,16 @@
   });
 
   function bind() {
+    $("themeSelect").addEventListener("change", () => applyTheme($("themeSelect").value));
     $("refreshBtn").addEventListener("click", () => loadProject().catch((e) => toast(e.message || String(e), true)));
-    $("pluginFrame").addEventListener("load", () => { $("pluginLoading").hidden = true; });
+    $("pluginFrame").addEventListener("load", () => {
+      $("pluginLoading").hidden = true;
+      postTheme();
+    });
   }
 
   (async () => {
+      initTheme();
     bind();
     try { await loadProject(); }
     catch (e) { showEmpty("读取项目失败：" + (e && e.message ? e.message : e)); }

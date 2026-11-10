@@ -110,6 +110,13 @@
   if (host) {
     host.addEventListener("message", (event) => {
       const d = event.data || {};
+      if (d.type === "editor.cdp-event") {
+        try {
+          const frame = document.getElementById("pluginFrame");
+          if (frame && frame.contentWindow) frame.contentWindow.postMessage(d, "*");
+        } catch { }
+        return;
+      }
       const p = state.pending.get(d.requestId);
       if (!p) return;
       state.pending.delete(d.requestId);

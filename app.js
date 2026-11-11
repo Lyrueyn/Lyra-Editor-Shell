@@ -520,8 +520,8 @@
     state.dirs = Array.isArray(info.dirs) ? info.dirs : [];
     $("projectName").textContent = state.projectName;
     renderTree();
-    if (!flags.html && !flags.js) {
-      showEmpty("需要安装 HTML 编辑器插件或 JavaScript 编辑器插件。");
+    if (!flags.html && !flags.js && !flags.epub) {
+      showEmpty("需要安装 HTML 编辑器插件、JavaScript 编辑器插件或 EPUB 编辑器插件。");
       return;
     }
     const target = chooseInitial(state.files);

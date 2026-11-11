@@ -149,7 +149,7 @@
     if (backend) q.set("backend", backend);
     if (kind === "html") { q.set("startEdit", "1"); q.set("editorEnabled", "1"); }
     if (kind === "epub") q.set("editorEnabled", "1");
-    if (kind === "css") q.set("v", "1.0.0");
+    if (kind === "css") q.set("v", "1.0.10");
     const base = extOrigin ? extOrigin + "/" + plugin + "/index.html" : "../" + (plugin === "html-reader" ? "Lyra-Extension-HTML-Reader" : plugin === "epub-editor" ? "Lyra-Extension-Epub-Editor" : plugin === "css-editor" ? "Lyra-Extension-CSS-Editor" : "Lyra-JS-Editor") + "/index.html";
     return base + "?" + q.toString();
   }

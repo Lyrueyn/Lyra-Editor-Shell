@@ -9,6 +9,7 @@
   const flags = {
     html: params.get("htmlEditor") === "1",
     js: params.get("jsEditor") === "1",
+    epub: params.get("epubEditor") === "1",
   };
   const THEME_KEY = "lyra.shell.theme";
   const THEMES = new Set(["lyra", "violet", "emerald", "sunset", "sakura", "light"]);
@@ -59,6 +60,7 @@
   function kindOf(rel) {
     const ext = extOf(rel);
     if (ext === ".html" || ext === ".htm") return "html";
+    if (ext === ".epub") return "epub";
     if (ext === ".js" || ext === ".mjs" || ext === ".cjs" || ext === ".jsx" || ext === ".ts" || ext === ".tsx" || ext === ".json") return "js";
     if (ext === ".css") return "css";
     return "other";
@@ -135,7 +137,7 @@
   }
 
   function pluginUrl(kind, rel) {
-    const plugin = kind === "html" ? "html-reader" : "js-editor";
+    const plugin = kind === "html" ? "html-reader" : kind === "epub" ? "epub-editor" : "js-editor";
     const q = new URLSearchParams();
     q.set("project", "1");
     q.set("projectName", state.projectName);
@@ -145,7 +147,8 @@
     if (bookAssetsOrigin) q.set("bookAssetsOrigin", bookAssetsOrigin);
     if (backend) q.set("backend", backend);
     if (kind === "html") { q.set("startEdit", "1"); q.set("editorEnabled", "1"); }
-    const base = extOrigin ? extOrigin + "/" + plugin + "/index.html" : "../" + (plugin === "html-reader" ? "Lyra-Extension-HTML-Reader" : "Lyra-JS-Editor") + "/index.html";
+    if (kind === "epub") q.set("editorEnabled", "1");
+    const base = extOrigin ? extOrigin + "/" + plugin + "/index.html" : "../" + (plugin === "html-reader" ? "Lyra-Extension-HTML-Reader" : plugin === "epub-editor" ? "Lyra-Extension-Epub-Editor" : "Lyra-JS-Editor") + "/index.html";
     return base + "?" + q.toString();
   }
 
@@ -473,6 +476,8 @@
     if (entry && all.includes(entry)) return entry;
     const html = all.find((r) => /\.html?$/i.test(r));
     const js = all.find((r) => /\.(m?js|cjs|jsx|tsx?|json)$/i.test(r)) || all.find((r) => /package\.json$/i.test(r));
+    const epub = all.find((r) => /\.epub$/i.test(r));
+    if (flags.epub && epub) return epub;
     if (flags.html && html) return html;
     if (flags.js && js) return js;
     return html || js || "";
@@ -482,15 +487,16 @@
     if (!rel || rel === state.currentRel) return;
     const kind = kindOf(rel);
     if (kind === "css") { toast("还没有 CSS 编辑器插件：" + rel, true); return; }
-    if (kind !== "html" && kind !== "js") { toast("没有适配这个文件类型的编辑器：" + rel, true); return; }
+    if (kind !== "html" && kind !== "js" && kind !== "epub") { toast("没有适配这个文件类型的编辑器：" + rel, true); return; }
     if (kind === "html" && !flags.html) { toast("需要安装 HTML 阅读器 + HTML 编辑器插件", true); return; }
     if (kind === "js" && !flags.js) { toast("需要安装 JavaScript 编辑器插件", true); return; }
+    if (kind === "epub" && !flags.epub) { toast("需要安装 EPUB 编辑器插件", true); return; }
     state.currentRel = rel;
     state.loading = true;
     $("pluginFrame").hidden = false;
     $("pluginLoading").hidden = false;
-    $("pluginLoading").textContent = "正在加载 " + (kind === "html" ? "HTML 编辑器…" : "JavaScript 编辑器…");
-    $("pluginBadge").textContent = kind === "html" ? "HTML 编辑器" : "JavaScript 编辑器";
+    $("pluginLoading").textContent = "正在加载 " + (kind === "html" ? "HTML 编辑器…" : kind === "epub" ? "EPUB 编辑器…" : "JavaScript 编辑器…");
+    $("pluginBadge").textContent = kind === "html" ? "HTML 编辑器" : kind === "epub" ? "EPUB 编辑器" : "JavaScript 编辑器";
     $("currentFile").textContent = fullPath(rel);
     renderTree();
     const url = pluginUrl(kind, rel);
@@ -519,7 +525,7 @@
       return;
     }
     const target = chooseInitial(state.files);
-    if (!target) { showEmpty("项目里没有可编辑的 HTML / JS 文件。"); return; }
+    if (!target) { showEmpty("项目里没有可编辑的 HTML / JS / EPUB 文件。"); return; }
     const parents = String(target).split("/");
     for (let i = 1; i < parents.length; i += 1) state.expanded.add(parents.slice(0, i).join("/"));
     await openFile(target);
@@ -528,7 +534,8 @@
   async function handleHost(method, payload) {
     if (method === "editor.open-file") {
       await openFile(payload.rel);
-      return { plugin: kindOf(payload.rel) === "html" ? "html-editor" : "js-editor" };
+      const k = kindOf(payload.rel);
+      return { plugin: k === "html" ? "html-editor" : k === "epub" ? "epub-editor" : "js-editor" };
     }
     const p = Object.assign({}, payload || {});
     if (method === "host.workspace.load" && !p.path && state.currentRel) p.path = state.currentRel;

@@ -64,7 +64,6 @@
     if (ext === ".epub") return "epub";
     if (ext === ".css") return "css";
     if (ext === ".js" || ext === ".mjs" || ext === ".cjs" || ext === ".jsx" || ext === ".ts" || ext === ".tsx" || ext === ".json") return "js";
-    if (ext === ".css") return "css";
     return "other";
   }
   function fullPath(rel) {
@@ -232,7 +231,7 @@
       for (const file of files) {
         visible += 1;
         const kind = kindOf(file.rel);
-        const available = kind === "html" ? flags.html : kind === "js" ? flags.js : false;
+        const available = kind === "html" ? flags.html : kind === "js" ? flags.js : kind === "css" ? flags.css : kind === "epub" ? flags.epub : false;
         const row = makeRow("tree-row tree-file" + (file.rel === state.currentRel ? " active" : "") + (available ? "" : " disabled"), depth, "", "", baseName(file.rel));
         row.querySelector(".tree-chevron").style.visibility = "hidden";
         row.title = file.rel;
@@ -411,7 +410,7 @@
     expandParents(rel);
     await reloadProjectTree();
     const kind = kindOf(rel);
-    if (kind === "html" || kind === "js") await openFile(rel);
+    if (kind === "html" || kind === "js" || kind === "css" || kind === "epub") await openFile(rel);
     toast("已新建文件：" + rel);
   }
   async function createProjectFolder(dirRel) {

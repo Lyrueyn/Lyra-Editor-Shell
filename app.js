@@ -10,6 +10,7 @@
     html: params.get("htmlEditor") === "1",
     js: params.get("jsEditor") === "1",
     epub: params.get("epubEditor") === "1",
+    css: params.get("cssEditor") === "1",
   };
   const THEME_KEY = "lyra.shell.theme";
   const THEMES = new Set(["lyra", "violet", "emerald", "sunset", "sakura", "light"]);
@@ -61,6 +62,7 @@
     const ext = extOf(rel);
     if (ext === ".html" || ext === ".htm") return "html";
     if (ext === ".epub") return "epub";
+    if (ext === ".css") return "css";
     if (ext === ".js" || ext === ".mjs" || ext === ".cjs" || ext === ".jsx" || ext === ".ts" || ext === ".tsx" || ext === ".json") return "js";
     if (ext === ".css") return "css";
     return "other";
@@ -137,7 +139,7 @@
   }
 
   function pluginUrl(kind, rel) {
-    const plugin = kind === "html" ? "html-reader" : kind === "epub" ? "epub-editor" : "js-editor";
+    const plugin = kind === "html" ? "html-reader" : kind === "epub" ? "epub-editor" : kind === "css" ? "css-editor" : "js-editor";
     const q = new URLSearchParams();
     q.set("project", "1");
     q.set("projectName", state.projectName);
@@ -148,7 +150,8 @@
     if (backend) q.set("backend", backend);
     if (kind === "html") { q.set("startEdit", "1"); q.set("editorEnabled", "1"); }
     if (kind === "epub") q.set("editorEnabled", "1");
-    const base = extOrigin ? extOrigin + "/" + plugin + "/index.html" : "../" + (plugin === "html-reader" ? "Lyra-Extension-HTML-Reader" : plugin === "epub-editor" ? "Lyra-Extension-Epub-Editor" : "Lyra-JS-Editor") + "/index.html";
+    if (kind === "css") q.set("v", "1.0.0");
+    const base = extOrigin ? extOrigin + "/" + plugin + "/index.html" : "../" + (plugin === "html-reader" ? "Lyra-Extension-HTML-Reader" : plugin === "epub-editor" ? "Lyra-Extension-Epub-Editor" : plugin === "css-editor" ? "Lyra-Extension-CSS-Editor" : "Lyra-JS-Editor") + "/index.html";
     return base + "?" + q.toString();
   }
 
@@ -477,6 +480,8 @@
     const html = all.find((r) => /\.html?$/i.test(r));
     const js = all.find((r) => /\.(m?js|cjs|jsx|tsx?|json)$/i.test(r)) || all.find((r) => /package\.json$/i.test(r));
     const epub = all.find((r) => /\.epub$/i.test(r));
+    const css = all.find((r) => /\.css$/i.test(r));
+    if (flags.css && css) return css;
     if (flags.epub && epub) return epub;
     if (flags.html && html) return html;
     if (flags.js && js) return js;
@@ -486,17 +491,17 @@
   async function openFile(rel) {
     if (!rel || rel === state.currentRel) return;
     const kind = kindOf(rel);
-    if (kind === "css") { toast("还没有 CSS 编辑器插件：" + rel, true); return; }
-    if (kind !== "html" && kind !== "js" && kind !== "epub") { toast("没有适配这个文件类型的编辑器：" + rel, true); return; }
+    if (kind !== "html" && kind !== "js" && kind !== "epub" && kind !== "css") { toast("没有适配这个文件类型的编辑器：" + rel, true); return; }
     if (kind === "html" && !flags.html) { toast("需要安装 HTML 阅读器 + HTML 编辑器插件", true); return; }
     if (kind === "js" && !flags.js) { toast("需要安装 JavaScript 编辑器插件", true); return; }
     if (kind === "epub" && !flags.epub) { toast("需要安装 EPUB 编辑器插件", true); return; }
+    if (kind === "css" && !flags.css) { toast("需要安装 CSS 编辑器插件", true); return; }
     state.currentRel = rel;
     state.loading = true;
     $("pluginFrame").hidden = false;
     $("pluginLoading").hidden = false;
-    $("pluginLoading").textContent = "正在加载 " + (kind === "html" ? "HTML 编辑器…" : kind === "epub" ? "EPUB 编辑器…" : "JavaScript 编辑器…");
-    $("pluginBadge").textContent = kind === "html" ? "HTML 编辑器" : kind === "epub" ? "EPUB 编辑器" : "JavaScript 编辑器";
+    $("pluginLoading").textContent = "正在加载 " + (kind === "html" ? "HTML 编辑器…" : kind === "epub" ? "EPUB 编辑器…" : kind === "css" ? "CSS 编辑器…" : "JavaScript 编辑器…");
+    $("pluginBadge").textContent = kind === "html" ? "HTML 编辑器" : kind === "epub" ? "EPUB 编辑器" : kind === "css" ? "CSS 编辑器" : "JavaScript 编辑器";
     $("currentFile").textContent = fullPath(rel);
     renderTree();
     const url = pluginUrl(kind, rel);
@@ -520,12 +525,12 @@
     state.dirs = Array.isArray(info.dirs) ? info.dirs : [];
     $("projectName").textContent = state.projectName;
     renderTree();
-    if (!flags.html && !flags.js && !flags.epub) {
-      showEmpty("需要安装 HTML 编辑器插件、JavaScript 编辑器插件或 EPUB 编辑器插件。");
+    if (!flags.html && !flags.js && !flags.epub && !flags.css) {
+      showEmpty("需要安装 HTML 编辑器、JavaScript 编辑器、EPUB 编辑器或 CSS 编辑器插件。");
       return;
     }
     const target = chooseInitial(state.files);
-    if (!target) { showEmpty("项目里没有可编辑的 HTML / JS / EPUB 文件。"); return; }
+    if (!target) { showEmpty("项目里没有可编辑的 HTML / JS / CSS / EPUB 文件。"); return; }
     const parents = String(target).split("/");
     for (let i = 1; i < parents.length; i += 1) state.expanded.add(parents.slice(0, i).join("/"));
     await openFile(target);
@@ -535,7 +540,7 @@
     if (method === "editor.open-file") {
       await openFile(payload.rel);
       const k = kindOf(payload.rel);
-      return { plugin: k === "html" ? "html-editor" : k === "epub" ? "epub-editor" : "js-editor" };
+      return { plugin: k === "html" ? "html-editor" : k === "epub" ? "epub-editor" : k === "css" ? "css-editor" : "js-editor" };
     }
     const p = Object.assign({}, payload || {});
     if (method === "host.workspace.load" && !p.path && state.currentRel) p.path = state.currentRel;
